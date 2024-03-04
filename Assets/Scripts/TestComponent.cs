@@ -36,6 +36,14 @@ public class TestComponent : MonoBehaviour
         sb.AppendLine(string.Format("otherPss:{0}", info.otherPss));
         sb.AppendLine(string.Format("otherPrivateDirty:{0}", info.otherPrivateDirty));
         sb.AppendLine(string.Format("otherSharedDirty:{0}", info.otherSharedDirty));
+
+        if(info.statsDic != null)
+        {
+            foreach (var kv in info.statsDic)
+            {
+                sb.AppendLine(string.Format("{0}:{1}", kv.Key, kv.Value));
+            }
+        }
         Debug.Log(sb.ToString());
     }
 }

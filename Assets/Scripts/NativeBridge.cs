@@ -19,9 +19,9 @@ public class NativeBridge
 #if !UNITY_ANDROID || UNITY_EDITOR
         return null;
 #endif
-        Debug.Log("android");
+        //Debug.Log("android");
         AndroidJavaObject mInfo = javaClass.Call<AndroidJavaObject>("getMemonry");
-        Debug.Log("call success");
+        //Debug.Log("call success");
         long dalvikHeapSize = mInfo.Get<long>("dalvikHeapSize");
         long dalvikHeapAlloc = mInfo.Get<long>("dalvikHeapAlloc");
         long dalvikHeapFree = mInfo.Get<long>("dalvikHeapFree");
@@ -62,17 +62,27 @@ public class NativeBridge
         memoryInfo.otherPss = otherPss;
         memoryInfo.otherPrivateDirty = otherPrivateDirty;
         memoryInfo.otherSharedDirty = otherSharedDirty;
-        return memoryInfo;
-    }
 
-    void example()
-    {
+        memoryInfo.statsDic = new Dictionary<string, int>();
+        AndroidJavaObject statusList = mInfo.Get<AndroidJavaObject>("statusList");
+        int listSize = statusList.Call<int>("size");
+        for (int i = 0; i + 1 < listSize; i += 2)
+        {
+            string key = statusList.Call<string>("get", i);
+            string value = statusList.Call<string>("get", i + 1);
+            int intValue = 0;
+            int.TryParse(value, out intValue);
+            memoryInfo.statsDic.Add(key, intValue);
+        }
+
+        return memoryInfo;
     }
 }
 
 public class MemoryInfo
 {
     //Java Runtime API
+    //单位 byte
     public long dalvikHeapSize;
     public long dalvikHeapAlloc;
     public long dalvikHeapFree;
@@ -83,6 +93,7 @@ public class MemoryInfo
     public long nativeHeapFree;
 
     //Java Debug API获取的数据
+    //单位 KB
     public int dalvikPss;
     public int dalvikPrivateDirty;
     public int dalvikSharedDirty;
@@ -94,6 +105,8 @@ public class MemoryInfo
     public int otherPss;
     public int otherPrivateDirty;
     public int otherSharedDirty;
+
+    public Dictionary<string, int> statsDic;
 }
 
 

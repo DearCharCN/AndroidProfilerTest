@@ -114,16 +114,21 @@ public class NativeBridge
 
     public void GetPermissions()
     {
+#if !UNITY_ANDROID || UNITY_EDITOR
+        return;
+#endif
         var unityActivity = GetUnityActivity();
-
         AndroidJavaClass permissionHelperClass = new AndroidJavaClass("com.dc.androidprofiler.PermissionHelper");
         permissionHelperClass.CallStatic("requestReadExternalStoragePermission", unityActivity);
     }
 
     public void RegisterBatteryReceiver(Action<AndroidBatteryInfo> batteryChangedCb, Action batteryLowCb, Action batteryOKayCb)
     {
+#if !UNITY_ANDROID || UNITY_EDITOR
+        return;
+#endif
         var unityActivity = GetUnityActivity();
-        var  callback = new BatteryReceiverCallbackFromJava(batteryChangedCb, batteryLowCb, batteryOKayCb);
+        var callback = new BatteryReceiverCallbackFromJava(batteryChangedCb, batteryLowCb, batteryOKayCb);
         bool result = javaClass.Call<bool>("registerBatteryReceiver", unityActivity, callback);
         Debug.Log("注册电量事件:" + result);
     }
@@ -132,6 +137,24 @@ public class NativeBridge
     {
         bool result = javaClass.Call<bool>("unregisterBatteryReceiver");
         Debug.Log("注销电量事件:" + result);
+    }
+
+    public long GetDownloadBytes()
+    {
+#if !UNITY_ANDROID || UNITY_EDITOR
+        return 0;
+#endif
+        long result = javaClass.Call<long>("getDownloadBytes");
+        return result;
+    }
+
+    public long GetUploadBytes()
+    {
+#if !UNITY_ANDROID || UNITY_EDITOR
+        return 0;
+#endif
+        long result = javaClass.Call<long>("getUploadBytes");
+        return result;
     }
 }
 
@@ -182,16 +205,16 @@ public class BatteryReceiverCallbackFromJava : AndroidJavaProxy
     Action<AndroidBatteryInfo> batteryChangedCb;
     Action batteryLowCb;
     Action batteryOKayCb;
-    public BatteryReceiverCallbackFromJava(Action<AndroidBatteryInfo> batteryChangedCb, Action batteryLowCb,Action batteryOKayCb) : base("com.dc.androidprofiler.BatteryReceiverCallbackForUnity")
+    public BatteryReceiverCallbackFromJava(Action<AndroidBatteryInfo> batteryChangedCb, Action batteryLowCb, Action batteryOKayCb) : base("com.dc.androidprofiler.BatteryReceiverCallbackForUnity")
     {
         this.batteryChangedCb = batteryChangedCb;
         this.batteryLowCb = batteryLowCb;
         this.batteryOKayCb = batteryOKayCb;
     }
 
-    public void batteryChanged(int level, int scale, int temperature, int status, int health, int pluggen)
+    public void batteryChanged(int level, int scale, int temperature, int status, int health, int pluggen, int voltage, int capacity, int current)
     {
-        var info = new AndroidBatteryInfo(level, scale, temperature, status, health, pluggen);
+        var info = new AndroidBatteryInfo(level, scale, temperature, status, health, pluggen, voltage, capacity, current);
         batteryChangedCb?.Invoke(info);
     }
 
@@ -224,12 +247,12 @@ public struct AndroidBatteryInfo
     /// 温度
     /// 单位 摄氏度
     /// </summary>
-    public float Temperature 
+    public float Temperature
     {
-        get 
+        get
         {
             return temperature / 10.0f;
-        } 
+        }
     }
 
     /// <summary>
@@ -244,14 +267,53 @@ public struct AndroidBatteryInfo
         }
     }
 
+    /// <summary>
+    /// 电池电压 单位伏特(V)
+    /// </summary>
+    public float Voltage
+    {
+        get
+        {
+            return (float)voltage / 1000f;
+        }
+    }
+
+    /// <summary>
+    /// 电池容量 单位毫安时(mAh)
+    /// </summary>
+    public float Capacity
+    {
+        get
+        {
+            return ToMA(capacity);
+            //return (float)capacity / 1000f;
+        }
+    }
+
+    /// <summary>
+    /// 电池电流 单位毫安(mA)
+    /// </summary>
+    public float Current
+    {
+        get
+        {
+            return ToMA(current);
+            //return (float)current / 1000000f;
+        }
+    }
+
     int level;
     int scale;
     int temperature;
     int status;
     int health;
     int pluggen;
+    int voltage;
+    int capacity;
+    int current;
 
-    public AndroidBatteryInfo(int level, int scale, int temperature, int status, int health, int pluggen)
+
+    public AndroidBatteryInfo(int level, int scale, int temperature, int status, int health, int pluggen, int voltage, int capacity, int current)
     {
         this.level = level;
         this.scale = scale;
@@ -259,6 +321,14 @@ public struct AndroidBatteryInfo
         this.status = status;
         this.health = health;
         this.pluggen = pluggen;
+        this.voltage = voltage;
+        this.capacity = capacity;
+        this.current = current;
+    }
+
+    private float ToMA(float maOrua)
+    {
+        return maOrua < 10000 ? maOrua : maOrua / 1000f;
     }
 }
 

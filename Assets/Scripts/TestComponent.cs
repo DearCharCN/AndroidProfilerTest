@@ -68,13 +68,24 @@ public class TestComponent : MonoBehaviour
         nativeClass.UnRegisterBatteryReceiver();
     }
 
+    public void OnGetBytesClick()
+    {
+        long downloadBytes = nativeClass.GetDownloadBytes();
+        long uploadBytes = nativeClass.GetUploadBytes();
+        Debug.Log(string.Format("downloadBytes:{0}, uploadBytes:{1}", downloadBytes, uploadBytes));
+    }
+
     AndroidBatteryInfo curInfo;
 
     private void OnBatteryChanged(AndroidBatteryInfo androidBatteryInfo)
     {
         Debug.Log("batteryChanged");
         curInfo = androidBatteryInfo;
-        Debug.Log(string.Format("BatteryPct:{0}, BatteryHealth:{1}, Temperature:{2}, BatteryPlugged:{3}, BatteryStatus:{4}", androidBatteryInfo.BatteryPct, androidBatteryInfo.BatteryHealth, androidBatteryInfo.Temperature, androidBatteryInfo.BatteryPlugged, androidBatteryInfo.BatteryStatus));
+        Debug.Log(string.Format("BatteryPct:{0} %, \r\nBatteryHealth:{1}, \r\nTemperature:{2} ℃, \r\nBatteryPlugged:{3}, \r\nBatteryStatus:{4}, \r\nVoltage:{5} V, \r\nCapacity:{6} mAh, \r\nCurrent:{7} mA\r\n", 
+            androidBatteryInfo.BatteryPct, androidBatteryInfo.BatteryHealth, 
+            androidBatteryInfo.Temperature, androidBatteryInfo.BatteryPlugged, 
+            androidBatteryInfo.BatteryStatus, androidBatteryInfo.Voltage, 
+            androidBatteryInfo.Capacity, androidBatteryInfo.Current));
     }
 
     private void OnBatteryLow()

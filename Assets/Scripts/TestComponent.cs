@@ -10,13 +10,15 @@ public class TestComponent : MonoBehaviour
         nativeClass = new NativeBridge();
     }
 
-    public void OnClick()
+    StringBuilder sb = new StringBuilder();
+
+    public void OnMemoryClick()
     {
         var info = nativeClass.getMemoryInfo();
         if (info == null)
             return;
 
-        StringBuilder sb = new StringBuilder();
+        sb.Clear();
         sb.AppendLine(string.Format("dalvikHeapSize:{0}", info.dalvikHeapSize));
         sb.AppendLine(string.Format("dalvikHeapAlloc:{0}", info.dalvikHeapAlloc));
         sb.AppendLine(string.Format("dalvikHeapFree:{0}", info.dalvikHeapFree));
@@ -45,5 +47,43 @@ public class TestComponent : MonoBehaviour
             }
         }
         Debug.Log(sb.ToString());
+    }
+
+    public void OnCpuClick()
+    {
+        var info = nativeClass.getCpuInfo();
+        if (info == null)
+            return;
+
+        Debug.Log(string.Format("CPU使用率: {0}", info.GetUsedRate()));
+    }
+
+    public void OnBatteryClick()
+    {
+        nativeClass.RegisterBatteryReceiver(OnBatteryChanged, OnBatteryLow, OnBatteryOKay);
+    }
+
+    public void OnUnregisterBatteryClick()
+    {
+        nativeClass.UnRegisterBatteryReceiver();
+    }
+
+    AndroidBatteryInfo curInfo;
+
+    private void OnBatteryChanged(AndroidBatteryInfo androidBatteryInfo)
+    {
+        Debug.Log("batteryChanged");
+        curInfo = androidBatteryInfo;
+        Debug.Log(string.Format("BatteryPct:{0}, BatteryHealth:{1}, Temperature:{2}, BatteryPlugged:{3}, BatteryStatus:{4}", androidBatteryInfo.BatteryPct, androidBatteryInfo.BatteryHealth, androidBatteryInfo.Temperature, androidBatteryInfo.BatteryPlugged, androidBatteryInfo.BatteryStatus));
+    }
+
+    private void OnBatteryLow()
+    {
+        Debug.Log("OnBatteryLow");
+    }
+
+    private void OnBatteryOKay()
+    {
+        Debug.Log("OnBatteryOKay");
     }
 }

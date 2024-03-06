@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -12,6 +13,21 @@ public class NativeBridge
     {
         javaClass = new UnityEngine.AndroidJavaObject("com.dc.androidprofiler.UnitySupport");
         memoryInfoClass = new UnityEngine.AndroidJavaObject("com.dc.androidprofiler.MemoryInfo");
+    }
+
+    static AndroidJavaObject m_unityActivity;
+
+    public static AndroidJavaObject GetUnityActivity()
+    {
+        if (m_unityActivity != null)
+            return m_unityActivity;
+
+        // 获取 UnityPlayer 对应的 AndroidJavaClass
+        AndroidJavaClass unityPlayerClass = new AndroidJavaClass("com.unity3d.player.UnityPlayer");
+        // 获取当前的 Activity
+        AndroidJavaObject activity = unityPlayerClass.GetStatic<AndroidJavaObject>("currentActivity");
+        m_unityActivity = activity;
+        return activity;
     }
 
     public MemoryInfo getMemoryInfo()
@@ -77,6 +93,46 @@ public class NativeBridge
 
         return memoryInfo;
     }
+
+    public CpuInfo getCpuInfo()
+    {
+#if !UNITY_ANDROID || UNITY_EDITOR
+        return null;
+#endif
+        Debug.Log("android");
+        GetPermissions();
+        AndroidJavaObject cInfo = javaClass.Call<AndroidJavaObject>("readCpuInfo");
+        Debug.Log("call success");
+        if (cInfo == null)
+            return null;
+
+        CpuInfo cpuInfo = new CpuInfo();
+        cpuInfo.totalTimes = cInfo.Get<long>("totaljiffie");
+        cpuInfo.usageTimes = cInfo.Get<long>("usagejiffie");
+        return cpuInfo;
+    }
+
+    public void GetPermissions()
+    {
+        var unityActivity = GetUnityActivity();
+
+        AndroidJavaClass permissionHelperClass = new AndroidJavaClass("com.dc.androidprofiler.PermissionHelper");
+        permissionHelperClass.CallStatic("requestReadExternalStoragePermission", unityActivity);
+    }
+
+    public void RegisterBatteryReceiver(Action<AndroidBatteryInfo> batteryChangedCb, Action batteryLowCb, Action batteryOKayCb)
+    {
+        var unityActivity = GetUnityActivity();
+        var  callback = new BatteryReceiverCallbackFromJava(batteryChangedCb, batteryLowCb, batteryOKayCb);
+        bool result = javaClass.Call<bool>("registerBatteryReceiver", unityActivity, callback);
+        Debug.Log("注册电量事件:" + result);
+    }
+
+    public void UnRegisterBatteryReceiver()
+    {
+        bool result = javaClass.Call<bool>("unregisterBatteryReceiver");
+        Debug.Log("注销电量事件:" + result);
+    }
 }
 
 public class MemoryInfo
@@ -109,4 +165,128 @@ public class MemoryInfo
     public Dictionary<string, int> statsDic;
 }
 
+public class CpuInfo
+{
+    public long totalTimes;
 
+    public long usageTimes;
+
+    public double GetUsedRate()
+    {
+        return (double)usageTimes / (double)totalTimes;
+    }
+}
+
+public class BatteryReceiverCallbackFromJava : AndroidJavaProxy
+{
+    Action<AndroidBatteryInfo> batteryChangedCb;
+    Action batteryLowCb;
+    Action batteryOKayCb;
+    public BatteryReceiverCallbackFromJava(Action<AndroidBatteryInfo> batteryChangedCb, Action batteryLowCb,Action batteryOKayCb) : base("com.dc.androidprofiler.BatteryReceiverCallbackForUnity")
+    {
+        this.batteryChangedCb = batteryChangedCb;
+        this.batteryLowCb = batteryLowCb;
+        this.batteryOKayCb = batteryOKayCb;
+    }
+
+    public void batteryChanged(int level, int scale, int temperature, int status, int health, int pluggen)
+    {
+        var info = new AndroidBatteryInfo(level, scale, temperature, status, health, pluggen);
+        batteryChangedCb?.Invoke(info);
+    }
+
+    public void batteryLow()
+    {
+        batteryLowCb?.Invoke();
+    }
+
+    public void batteryOKay()
+    {
+        batteryOKayCb?.Invoke();
+    }
+}
+
+public struct AndroidBatteryInfo
+{
+    /// <summary>
+    /// 电池健康
+    /// </summary>
+    public AndroidBatteryHealth BatteryHealth { get { return (AndroidBatteryHealth)health; } }
+    /// <summary>
+    /// 电池状态
+    /// </summary>
+    public AndroidBatteryStatus BatteryStatus { get { return (AndroidBatteryStatus)status; } }
+    /// <summary>
+    /// 充电状态
+    /// </summary>
+    public AndroidBatteryPlugged BatteryPlugged { get { return (AndroidBatteryPlugged)pluggen; } }
+    /// <summary>
+    /// 温度
+    /// 单位 摄氏度
+    /// </summary>
+    public float Temperature 
+    {
+        get 
+        {
+            return temperature / 10.0f;
+        } 
+    }
+
+    /// <summary>
+    /// 电量百分比
+    /// 0-100
+    /// </summary>
+    public int BatteryPct
+    {
+        get
+        {
+            return level * 100 / scale;
+        }
+    }
+
+    int level;
+    int scale;
+    int temperature;
+    int status;
+    int health;
+    int pluggen;
+
+    public AndroidBatteryInfo(int level, int scale, int temperature, int status, int health, int pluggen)
+    {
+        this.level = level;
+        this.scale = scale;
+        this.temperature = temperature;
+        this.status = status;
+        this.health = health;
+        this.pluggen = pluggen;
+    }
+}
+
+public enum AndroidBatteryHealth
+{
+    UNKNOWN = 1,
+    GOOD = 2,
+    OVERHEAT = 3,
+    DEAD = 4,
+    OVER_VOLTAGE = 5,
+    UNSPECIFIED_FAILURE = 6,
+    COLD = 7
+}
+
+public enum AndroidBatteryStatus
+{
+    UNKNOWN = 1,
+    CHARGING = 2,
+    DISCHARGING = 3,
+    NOT_CHARGING = 4,
+    FULL = 5
+}
+
+
+public enum AndroidBatteryPlugged
+{
+    NONE = 0,
+    AC = 1,
+    USB = 2,
+    WIRELESS = 4
+}
